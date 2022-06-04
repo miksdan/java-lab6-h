@@ -1,0 +1,7 @@
+help
+show
+execute_script script3.txt
+head
+execute_script script.txt
+info
+max_by_creation_date

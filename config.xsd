@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="movies">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" name="movie">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="id" type="xs:integer"/>
+                            <xs:element name="name" type="xs:string"/>
+                            <xs:element name="coordinates">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="x" type="xs:integer"/>
+                                        <xs:element name="y" type="xs:long"/>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                            <xs:element name="creationDate" type="xs:date"/>
+                            <xs:element name="oscarsCount" type="xs:integer"/>
+                            <xs:element name="goldenPalmCount" type="xs:integer"/>
+                            <xs:element name="length" type="xs:long"/>
+                            <xs:element name="mpaaRating" type="xs:string"/>
+                        <xs:element minOccurs="0" maxOccurs="1" name="screenwriter">
+                            <xs:complexType>
+                                <xs:sequence>
+                                <xs:element name="name" type="xs:string"/>
+                                <xs:element name="weight" type="xs:integer"/>
+                                <xs:element name="eyeColor" type="xs:string"/>
+                                <xs:element name="hairColor" type="xs:string"/>
+                                <xs:element name="nationality" type="xs:string"/>
+                                </xs:sequence>
+                            </xs:complexType>
+                        </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+<!--using type="LimitedString"-->
+    <xs:simpleType name="LimitedString">
+        <xs:restriction base="xs:string">
+            <xs:maxLength value="100" />
+            <xs:minLength value="0" />
+        </xs:restriction>
+    </xs:simpleType>
+
+</xs:schema>
