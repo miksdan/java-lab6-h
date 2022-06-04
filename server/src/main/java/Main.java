@@ -19,7 +19,7 @@ public class Main {
 
         try {
             new Server(args[0], args[1]);
-        } catch (IOException | URISyntaxException e) {
+        } catch (IOException | URISyntaxException | InterruptedException e) {
             logger.info(e.getMessage());
         }
     }

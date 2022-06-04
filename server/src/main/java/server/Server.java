@@ -10,11 +10,11 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 import static utils.ConvertUtil.convertByteArrayToObject;
 import static utils.ConvertUtil.convertObjectToByteArray;
@@ -26,7 +26,7 @@ public class Server {
 
     private final ServerSocketChannel server;
     private final List<ClientConnection> clients = new ArrayList<>();
-
+    private Selector selector;
     private final String fileName;
 
     /**
@@ -37,11 +37,13 @@ public class Server {
      * @throws IOException
      * @throws URISyntaxException
      */
-    public Server(String fileName, String inetSocketAddress) throws IOException, URISyntaxException {
+    public Server(String fileName, String inetSocketAddress) throws IOException, URISyntaxException, InterruptedException {
         this.fileName = fileName;
         this.server = ServerSocketChannel.open();
+        selector = Selector.open();
         server.configureBlocking(false);
         server.socket().bind(new InetSocketAddress(Integer.valueOf(inetSocketAddress)));
+        server.register(selector, SelectionKey.OP_ACCEPT);
         logger.info("Server started.");
         if (validateFileAndReadXml(fileName)) {
             run();
@@ -52,7 +54,7 @@ public class Server {
     /**
      * server command execution thread
      */
-    private void run() {
+    private void run() throws IOException, InterruptedException {
 
         Thread thread = new Thread(() -> {
             Scanner scanner = new Scanner(System.in);
@@ -80,47 +82,54 @@ public class Server {
         });
         thread.start();
 
-        while (true) {
-            getNewClient();
-            handleNewRequests();
-        }
-    }
-
-    private void handleNewRequests() {
         ByteBuffer buffer = ByteBuffer.allocate(10000);
-        for (int i = 0; i < clients.size(); i++) {
-            ClientConnection client = clients.get(i);
-            try {
-                buffer.clear();
-                int countOfBytes = client.getSocket().read(buffer);
-                if (countOfBytes < 1) {
-                    continue;
+        Iterator<SelectionKey> iterator;
+        SelectionKey key;
+
+        while (true) {
+
+            int select = selector.select();
+            if (select == 0) {
+                continue;
+            }
+
+            iterator = selector.selectedKeys().iterator();
+            while (iterator.hasNext()) {
+                key = iterator.next();
+                iterator.remove();
+
+                if (key.channel() == server) {
+
+                    SocketChannel client = server.accept();
+
+                    if (client != null) {
+                        client.configureBlocking(false);
+                        client.register(selector, SelectionKey.OP_READ);
+                        logger.info("Client connected.");
+                    }
+                } else {
+                    try {
+                        buffer.clear();
+                        int countOfBytes = ((SocketChannel) key.channel()).read(buffer);
+                        if (countOfBytes < 1) {
+                            return;
+                        }
+                        Request request = (Request) convertByteArrayToObject(buffer.array());
+                        logger.info("Received Request from client with command: " + request.getCommand() + ".");
+                        Response response = CommandExecutor.startExecution(request);
+                        logger.info("Sending Response to client.");
+                        ((SocketChannel) key.channel()).write(ByteBuffer.wrap(convertObjectToByteArray(response)));
+                        logger.info("Response send to client.");
+                    } catch (IOException e) {
+                        logger.warn("Client disconnected.");
+                        try {
+                            key.cancel();
+                        } catch (Exception ex) {
+                            continue;
+                        }
+                    }
                 }
-                Request request = (Request) convertByteArrayToObject(buffer.array());
-                logger.info("Received Request from client with command " + request.getCommand());
-                Response response = CommandExecutor.startExecution(request);
-                logger.info("Sending Response to client.");
-                client.getSocket().write(ByteBuffer.wrap(convertObjectToByteArray(response)));
-                logger.info("Response send to client.");
-            } catch (IOException e) {
-                logger.warn("Client disconnected.");
-                client.disconnect();
-                clients.remove(client);
             }
-        }
-
-    }
-
-    private void getNewClient() {
-        try {
-            SocketChannel client = server.accept();
-            if (client != null) {
-                client.configureBlocking(false);
-                clients.add(new ClientConnection(client));
-                logger.info("Client connected.");
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 }
